@@ -38,6 +38,119 @@ https://www.ps3838.com/sports-service/sv/compact/events
 - 需要确认是否有分页、分组、过滤条件、区域/语言差异或其他必要请求。
 - 不应将接口名称中的 events 直接理解为所有盘口均已返回；赛事列表和赔率/盘口数据覆盖必须分别验收。
 
+### 实际请求方式（请求模板，尚未写成可直接运行的采集器）
+
+以下示例说明 HTTP 请求结构。真实域名、会话和参数必须使用你当前已授权浏览器会话抓到的最新值。**不要把真实 Cookie 或令牌提交到仓库。**
+
+#### Crown：今日足球列表
+
+请求方式为 HTTP POST，URL 是当前站点的 `transform.php?ver=...`。表单字段示例：
+
+```text
+uid=<从当前浏览器请求中读取>
+ver=<当前请求版本>
+langx=zh-cn
+p=get_game_list
+p3type=
+date=
+gtype=ft
+showtype=today
+rtype=r
+ltype=3
+filter=FT
+cupFantasy=N
+sorttype=L
+specialClick=
+isFantasy=N
+ts=<请求时生成或由页面提供的值>
+chgSortTS=<请求时生成或由页面提供的值>
+```
+
+#### Crown：滚球足球列表
+
+同样是 HTTP POST 到当前站点的 `transform.php?ver=...`，表单字段与今日请求相似，已观察到的区别是：
+
+```text
+showtype=live
+rtype=rb
+filter=
+```
+
+其余字段以最新浏览器 Network 请求为准。今日与滚球响应可能重叠，解析后按 Crown 的比赛 ID 去重。
+
+#### Crown：安全的 Python 请求骨架
+
+```python
+import os
+import requests
+
+CROWN_TRANSFORM_URL = os.environ["CROWN_TRANSFORM_URL"]
+CROWN_COOKIE = os.environ["CROWN_COOKIE"]  # 只放本地环境变量，不要提交到 Git
+CROWN_UID = os.environ["CROWN_UID"]
+CROWN_VER = os.environ["CROWN_VER"]
+
+def fetch_crown_games(showtype: str):
+    if showtype == "today":
+        rtype, filter_value = "r", "FT"
+    elif showtype == "live":
+        rtype, filter_value = "rb", ""
+    else:
+        raise ValueError("showtype must be 'today' or 'live'")
+
+    form = {
+        "uid": CROWN_UID,
+        "ver": CROWN_VER,
+        "langx": "zh-cn",
+        "p": "get_game_list",
+        "p3type": "",
+        "date": "",
+        "gtype": "ft",
+        "showtype": showtype,
+        "rtype": rtype,
+        "ltype": "3",
+        "filter": filter_value,
+        "cupFantasy": "N",
+        "sorttype": "L",
+        "specialClick": "",
+        "isFantasy": "N",
+        # 按当前页面协议填入 ts/chgSortTS；先用浏览器抓包验证其是否必需
+    }
+    headers = {
+        "Accept": "*/*",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Cookie": CROWN_COOKIE,
+        "Origin": "https://m321.mos077.com",
+    }
+    response = requests.post(
+        CROWN_TRANSFORM_URL,
+        data=form,
+        headers=headers,
+        timeout=(5, 20),
+    )
+    response.raise_for_status()
+    return response.text  # 先保存原始响应；具体 XML/JSON 解析器需按脱敏样本实现
+```
+
+运行前在本地设置环境变量。此代码是请求骨架，不代表已验证所有字段均可省略；需要根据浏览器最新请求补齐必要参数，并确认响应状态与内容。
+
+#### Pinnacle：赛事列表请求
+
+请求方式为 HTTP GET：
+
+```text
+https://www.ps3838.com/sports-service/sv/compact/events
+```
+
+当前记录的查询参数包含 `sp`、`pimo`、`cl`、`l`、`locale` 等。不要在未验证前随意删除或修改这些参数。建议从浏览器 Network 对当前请求使用 Copy as cURL，先在本地确认可重复请求，再把 URL 参数与必要请求头整理进本地配置；Cookie、`x-u`、`x-lcu`、`x-custid`、`x-app-data` 等会话字段只保存在环境变量或本地未跟踪配置文件中。
+
+#### 验证步骤
+
+1. 在已登录浏览器打开 Network，分别捕获 Crown 今日、Crown 滚球和 Pinnacle events 请求。
+2. 只保存 URL、方法、非敏感参数和脱敏响应；删除 Cookie、令牌、账号标识及会话 ID。
+3. 本地重复请求，确认 HTTP 状态码、响应格式、赛事数量与关键字段。
+4. 比较刷新前后的比赛 ID，确认去重与新增/消失逻辑。
+5. 只有完成响应解析和覆盖率测试后，才接入持续调度；刷新频率应符合站点规则并通过低频测试确定。
+
 ### 安全要求
 
 - 不要把 Cookie、Authorization、会话 Token、账号密码、TOTP 密钥或完整带认证信息的请求头提交到 Git。
