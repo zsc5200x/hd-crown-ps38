@@ -1950,7 +1950,7 @@ function installSourceRouter(){
    document.title=doc.title||document.title;document.body.innerHTML=doc.body.innerHTML;
    window.__sourceView=sourcePath;
    const nextState={...window.history.state,sourceView:sourcePath};
-   if(options.replace)window.history.replaceState(nextState,"",window.location.href);else window.history.pushState(nextState,"",window.location.href);
+   if(options.replace)window.history.replaceState(nextState,"",sourcePath);else window.history.pushState(nextState,"",sourcePath);
    const scripts=[...document.body.querySelectorAll("script")];
    for(const script of scripts){const code=script.textContent||"";script.remove();if(code)new Function(code)();}
   }catch(error){console.error("页面切换失败",error);}
@@ -3117,7 +3117,7 @@ function installSourceRouter(){
    document.title=doc.title||document.title;document.body.innerHTML=doc.body.innerHTML;
    window.__sourceView=sourcePath;
    const nextState={...window.history.state,sourceView:sourcePath};
-   if(options.replace)window.history.replaceState(nextState,"",window.location.href);else window.history.pushState(nextState,"",window.location.href);
+   if(options.replace)window.history.replaceState(nextState,"",sourcePath);else window.history.pushState(nextState,"",sourcePath);
    const scripts=[...document.body.querySelectorAll("script")];
    for(const script of scripts){const code=script.textContent||"";script.remove();if(code)new Function(code)();}
   }catch(error){console.error("页面切换失败",error);}
